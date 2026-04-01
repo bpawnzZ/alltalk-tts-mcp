@@ -107,6 +107,7 @@ export XDG_RUNTIME_DIR="/run/user/$(id -u)"
 - `quick_tts` - Simplified TTS with RVC
 - `generate_with_rvc` - TTS with RVC voice conversion
 - `generate_narrator` - TTS with narrator mode
+- `stream_tts` - Real-time streaming TTS (no RVC/narrator)
 
 ### Configuration & Information
 - `list_voices` - List available TTS voices

@@ -4,6 +4,7 @@ import json
 import asyncio
 import subprocess
 import time
+import tempfile
 from typing import Any, Optional
 from pathlib import Path
 import httpx
@@ -22,88 +23,34 @@ USER_AGENT = "alltalk-mcp/1.0"
 
 
 def play_audio_file(file_path: str) -> bool:
-    """Play audio file using system audio player with proper environment.
+    """Play audio file using system audio player."""
+    import os
+    import subprocess
 
-    This function ensures the subprocess has access to the PulseAudio
-    socket by setting the PULSE_SERVER environment variable.
-
-    Args:
-        file_path: Path to the audio file to play
-
-    Returns:
-        True if playback succeeded, False otherwise
-    """
-    # Copy current environment
     env = os.environ.copy()
+    env.setdefault("PULSE_SERVER", "unix:/run/user/1000/pulse/native")
+    env.setdefault("XDG_RUNTIME_DIR", "/run/user/1000")
+    env["PATH"] = "/usr/bin:/bin:" + env.get("PATH", "")
 
-    # Ensure PULSE_SERVER is set
-    if "PULSE_SERVER" not in env:
-        # Try common PulseAudio socket locations
-        pulse_sockets = [
-            "/run/user/1000/pulse/native",  # User session
-            "/run/user/$(id -u)/pulse/native",  # Current user
-            "/var/run/pulse/native",  # System-wide
-        ]
+    for player in [
+        "/usr/bin/ffplay",
+        "/usr/bin/paplay",
+        "/usr/bin/aplay",
+        "/usr/bin/mpg123",
+    ]:
+        cmd = (
+            [player, "-nodisp", "-autoexit", file_path]
+            if "ffplay" in player
+            else [player, file_path]
+        )
 
-        for socket in pulse_sockets:
-            # Expand $(id -u) if present
-            if "$(id -u)" in socket:
-                try:
-                    uid = subprocess.check_output(["id", "-u"], text=True).strip()
-                    socket = socket.replace("$(id -u)", uid)
-                except:
-                    continue
-
-            if os.path.exists(socket):
-                env["PULSE_SERVER"] = f"unix:{socket}"
-                break
-
-    # Also ensure XDG_RUNTIME_DIR is set
-    if "XDG_RUNTIME_DIR" not in env:
-        env["XDG_RUNTIME_DIR"] = f"/run/user/{os.getuid()}"
-
-    # Try different audio players in order of preference
-    players = [
-        ["paplay", file_path],  # PulseAudio
-        ["aplay", "-q", file_path],  # ALSA
-        ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet", file_path],  # FFmpeg
-        ["mpv", "--no-video", "--really-quiet", file_path],  # MPV
-        ["cvlc", "--play-and-exit", "--quiet", file_path],  # VLC
-    ]
-
-    for player_cmd in players:
         try:
-            # Log what we're trying
-            print(f"Attempting to play with: {player_cmd[0]}", file=sys.stderr)
-            print(
-                f"PULSE_SERVER: {env.get('PULSE_SERVER', 'Not set')}", file=sys.stderr
-            )
-
-            result = subprocess.run(
-                player_cmd,
-                check=True,
-                timeout=30,
-                capture_output=True,
-                text=True,
-                env=env,
-            )
-            print(f"Successfully played audio with {player_cmd[0]}", file=sys.stderr)
-            return True
-        except FileNotFoundError:
-            print(f"Player not found: {player_cmd[0]}", file=sys.stderr)
-            continue
-        except subprocess.CalledProcessError as e:
-            print(f"Player error with {player_cmd[0]}: {e.stderr}", file=sys.stderr)
-            continue
-        except subprocess.TimeoutExpired:
-            print(f"Player timeout with {player_cmd[0]}", file=sys.stderr)
-            continue
-        except Exception as e:
-            print(f"Unexpected error with {player_cmd[0]}: {e}", file=sys.stderr)
+            result = subprocess.run(cmd, env=env, capture_output=True, timeout=30)
+            if result.returncode == 0:
+                return True
+        except Exception:
             continue
 
-    print(f"All audio players failed. File is at: {file_path}", file=sys.stderr)
-    print(f"You can play it manually with: paplay {file_path}", file=sys.stderr)
     return False
 
 
@@ -255,6 +202,7 @@ async def generate_tts(
     pitch: int = 0,
     temperature: float = 0.8,
     repetition_penalty: float = 5.0,
+    streaming: bool = False,
 ) -> str:
     """Generate TTS audio using AllTalk with full parameter support.
 
@@ -281,7 +229,15 @@ async def generate_tts(
         pitch: Voice pitch adjustment (-10 to 10)
         temperature: Sampling temperature (0.1-1.0)
         repetition_penalty: Repetition penalty (1.0-20.0)
+        streaming: Use streaming endpoint for real-time audio (no RVC/narrator support)
     """
+    if streaming:
+        return await stream_tts_v2(
+            text=text_input,
+            voice=character_voice_gen,
+            language=language,
+            autoplay=autoplay,
+        )
     narrator_val = "true" if narrator_enabled else "silent"
     if narrator_enabled and text_not_inside != "silent":
         narrator_val = "true"
@@ -495,6 +451,84 @@ async def generate_narrator(
         text_not_inside="narrator",
         language=language,
     )
+
+
+@mcp.tool()
+async def stream_tts_v2(
+    text: str,
+    voice: str = "female_03.wav",
+    language: str = "auto",
+    output_file: str = "",
+    autoplay: bool = True,
+) -> str:
+    """Stream TTS audio in real-time for immediate playback.
+
+    This endpoint generates and streams TTS audio directly for real-time playback.
+    It does not support narration or RVC voice conversion.
+
+    Args:
+        text: The text to convert to speech (required)
+        voice: The voice type to use (e.g., "female_03.wav")
+        language: Language code or "auto"
+        output_file: Optional name for the output file
+        autoplay: Auto-play the audio after generation
+
+    Returns:
+        Path to the generated audio file with playback instructions.
+    """
+    if not text.strip():
+        return "Error: Text cannot be empty"
+
+    output = output_file or f"stream_{int(time.time() * 1000)}.wav"
+
+    url = f"{ALLTALK_URL}/api/tts-generate-streaming"
+    params = {
+        "text": text,
+        "voice": voice,
+        "language": language,
+        "output_file": output,
+    }
+
+    # Use streaming to get chunks as they arrive
+    async with httpx.AsyncClient(timeout=120.0, follow_redirects=True) as client:
+        try:
+            # Stream the response
+            async with client.stream("GET", url, params=params) as response:
+                content_type = response.headers.get("content-type", "")
+
+                if content_type.startswith("audio"):
+                    # Pipe audio directly to ffplay as chunks arrive
+                    import subprocess
+
+                    ffplay_proc = subprocess.Popen(
+                        ["/usr/bin/ffplay", "-nodisp", "-autoexit", "-"],
+                        stdin=subprocess.PIPE,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+
+                    async for chunk in response.aiter_bytes(chunk_size=8192):
+                        if chunk:
+                            ffplay_proc.stdin.write(chunk)
+
+                    ffplay_proc.stdin.close()
+                    ffplay_proc.wait()
+
+                    return (
+                        f"Streaming TTS completed!\n"
+                        f"Text: {text[:50]}...\n"
+                        f"Played in real-time via streaming"
+                    )
+                else:
+                    # Fallback: non-streaming response
+                    result = await response.json()
+                    if result.get("output_file_path"):
+                        audio_url = f"{ALLTALK_URL}/audio/{result['output_file_path']}"
+                        return f"Streaming ready! URL: {audio_url}"
+                    return f"Error: {result}"
+
+        except Exception as e:
+            return f"Error: {str(e)}"
 
 
 def create_starlette_app(mcp_server: Server, *, debug: bool = False) -> Starlette:
