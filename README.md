@@ -32,7 +32,6 @@ cd alltalk-tts-mcp
 
 #### Option A: Using uv (recommended - faster)
 ```bash
-cd alltalk-mcp-server
 # Install uv if not already installed
 curl -LsSf https://astral.sh/uv/install.sh | sh
 # Or using pip: pip install uv
@@ -43,7 +42,6 @@ uv sync
 
 #### Option B: Using pip (traditional)
 ```bash
-cd alltalk-mcp-server
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
@@ -67,8 +65,8 @@ export XDG_RUNTIME_DIR="/run/user/$(id -u)"
 {
   "mcpServers": {
     "alltalk-tts": {
-      "command": "/path/to/alltalk-mcp-server/.venv/bin/python",
-      "args": ["/path/to/alltalk-mcp-server/server.py", "--transport", "stdio"],
+      "command": "/path/to/alltalk-tts-mcp/.venv/bin/python",
+      "args": ["/path/to/alltalk-tts-mcp/server.py", "--transport", "stdio"],
       "env": {
         "ALLTALK_URL": "http://localhost:7851",
         "PULSE_SERVER": "unix:/run/user/1000/pulse/native",
@@ -86,8 +84,8 @@ export XDG_RUNTIME_DIR="/run/user/$(id -u)"
     "alltalk-tts": {
       "type": "local",
       "command": [
-        "/path/to/alltalk-mcp-server/.venv/bin/python",
-        "/path/to/alltalk-mcp-server/server.py",
+        "/path/to/alltalk-tts-mcp/.venv/bin/python",
+        "/path/to/alltalk-tts-mcp/server.py",
         "--transport",
         "stdio"
       ],
@@ -219,14 +217,37 @@ result = alltalk_tts.generate_narrator(
 
 ## Development
 
-### Branch Structure
-- `main`: Generic setup with default values
-- `insomnia-config`: Specific configuration for insomnia system
+### Custom Configuration
+
+To create your own custom configuration:
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/bpawnzZ/alltalk-tts-mcp.git
+   cd alltalk-tts-mcp
+   ```
+
+2. **Set up environment**:
+   ```bash
+   
+   uv sync  # or use pip: python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
+   ```
+
+3. **Configure for your system**:
+   - Edit `server.py` to change default values (voice, RVC model, etc.)
+   - Set environment variables for your AllTalk server URL
+   - Update MCP client configuration with your specific paths
+
+4. **Common customizations**:
+   - Change `ALLTALK_URL` to your server address
+   - Modify default voice in `server.py` parameters
+   - Set your preferred RVC model
+   - Adjust audio playback settings for your system
 
 ### Testing
 ```bash
 # Test server directly
-cd alltalk-mcp-server
+
 python server.py --help
 
 # Test with stdio transport (for MCP clients)

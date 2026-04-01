@@ -46,7 +46,7 @@ test_*.py
 Thumbs.db
 
 # AllTalk outputs (user data)
-alltalk-mcp-server/outputs/
+outputs/
 *.wav
 *.mp3
 
@@ -58,3 +58,14 @@ alltalk-mcp-server/outputs/
 # MCP configuration (user-specific)
 config.local.json
 mcp.local.json
+
+# Development files
+server_debug.py
+server_simple_debug.py
+uv.lock
+*.lock
+
+# Cache directories
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
