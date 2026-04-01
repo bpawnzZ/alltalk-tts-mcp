@@ -29,6 +29,19 @@ cd alltalk-tts-mcp
 ```
 
 ### 2. Set up Python environment
+
+#### Option A: Using uv (recommended - faster)
+```bash
+cd alltalk-mcp-server
+# Install uv if not already installed
+curl -LsSf https://astral.sh/uv/install.sh | sh
+# Or using pip: pip install uv
+
+# Create virtual environment and install dependencies
+uv sync
+```
+
+#### Option B: Using pip (traditional)
 ```bash
 cd alltalk-mcp-server
 python -m venv .venv
