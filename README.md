@@ -115,8 +115,8 @@ alltalk-tts_list_voices
 # Generate TTS with RVC
 alltalk-tts_generate_tts \
   --text_input "Hello, this is a test" \
-  --character_voice_gen "female_03.wav" \
-  --rvccharacter_voice_gen "latina_egirl/Latina_egirl.pth" \
+  --character_voice_gen "female_01.wav" \
+  --rvccharacter_voice_gen "" \
   --autoplay true
 
 # Quick TTS generation
@@ -135,10 +135,10 @@ print(voices)
 # Generate TTS with specific parameters
 result = alltalk_tts.generate_tts(
     text_input="Hello from Claude!",
-    character_voice_gen="female_03.wav",
+    character_voice_gen="female_01.wav",
     narrator_enabled=True,
     narrator_voice_gen="male_01.wav",
-    rvccharacter_voice_gen="latina_egirl/Latina_egirl.pth",
+    rvccharacter_voice_gen="",
     speed=1.2,
     pitch=2
 )
@@ -150,7 +150,7 @@ print(f"Generated: {result}")
 result = alltalk_tts.generate_narrator(
     text="\"Hello,\" said the character. The narrator continued the story.",
     character_text="Hello,",
-    character_voice="female_03.wav",
+    character_voice="female_01.wav",
     narrator_voice="male_01.wav",
     language="auto"
 )
@@ -160,10 +160,10 @@ result = alltalk_tts.generate_narrator(
 
 ### `generate_tts` Parameters:
 - `text_input` (required): Text to synthesize
-- `character_voice_gen`: Voice file for character (default: "female_03.wav")
+- `character_voice_gen`: Voice file for character (default: "female_01.wav")
 - `narrator_enabled`: Enable narrator mode (default: false)
 - `narrator_voice_gen`: Voice for narrator (default: "male_01.wav")
-- `rvccharacter_voice_gen`: RVC model for character voice (default: "latina_egirl/Latina_egirl.pth")
+- `rvccharacter_voice_gen`: RVC model for character voice (default: "")
 - `rvccharacter_pitch`: Pitch shift for RVC (-24 to 24, default: 0)
 - `language`: Language code or "auto" (default: "auto")
 - `speed`: Speech speed (0.25-2.0, default: 1.0)
