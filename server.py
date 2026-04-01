@@ -340,26 +340,8 @@ async def generate_tts(
         output = result.get("output_file_url", result.get("output_file", ""))
         output_path = result.get("output_file_path", "")
 
-        if output_path and autoplay:
-            if os.path.exists(output_path):
-                play_audio_file(output_path)
-            elif output:
-                full_url = f"{ALLTALK_URL}{output}"
-                try:
-                    async with httpx.AsyncClient(timeout=30.0) as client:
-                        audio_data = await client.get(full_url)
-                        if audio_data.status_code == 200:
-                            import tempfile
-
-                            with tempfile.NamedTemporaryFile(
-                                suffix=".wav", delete=False
-                            ) as tmp:
-                                tmp.write(audio_data.content)
-                                tmp_path = tmp.name
-                            play_audio_file(tmp_path)
-                            os.unlink(tmp_path)
-                except Exception:
-                    pass
+        # Let AllTalk handle audio playback if autoplay=True
+        # Removed local playback to prevent double playing
 
         return f"TTS Generated Successfully!\nOutput: {output}\nFile: {output_path}\n{ALLTALK_URL}{output}"
     return f"Error generating TTS: {result.get('message', 'Unknown error')}"
